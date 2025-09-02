@@ -120,31 +120,80 @@ async def get_team_details(team_id: int):
 async def get_recent_matches():
     """Get recent Premier League matches"""
     try:
+        # Get matches from current season with better date filtering
         url = f"{BASE_URL}/competitions/PL/matches"
-        response = requests.get(url, headers=headers)
+        params = {
+            "season": datetime.now().year,  # Current season
+            "status": ["FINISHED", "LIVE", "SCHEDULED"]  # Include all relevant statuses
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
         
         if response.status_code == 200:
             data = response.json()
             matches = []
             
-            # Get last 10 matches
-            for match in data.get("matches", [])[:10]:
-                matches.append({
-                    "id": match.get("id"),
-                    "homeTeam": match.get("homeTeam", {}).get("name"),
-                    "awayTeam": match.get("awayTeam", {}).get("name"),
-                    "score": {
-                        "home": match.get("score", {}).get("fullTime", {}).get("home"),
-                        "away": match.get("score", {}).get("fullTime", {}).get("away")
-                    },
-                    "status": match.get("status"),
-                    "date": match.get("utcDate")
-                })
+            # Get all matches and sort by date (most recent first)
+            all_matches = data.get("matches", [])
+            
+            # Sort matches by date (most recent first)
+            all_matches.sort(key=lambda x: x.get("utcDate", ""), reverse=True)
+            
+            # Get last 15 matches for better variety
+            for match in all_matches[:15]:
+                match_date = match.get("utcDate")
+                if match_date:
+                    # Parse the date and check if it's recent (within last 6 months)
+                    try:
+                        match_datetime = datetime.fromisoformat(match_date.replace('Z', '+00:00'))
+                        six_months_ago = datetime.now() - timedelta(days=180)
+                        
+                        if match_datetime >= six_months_ago:
+                            matches.append({
+                                "id": match.get("id"),
+                                "homeTeam": match.get("homeTeam", {}).get("name"),
+                                "awayTeam": match.get("awayTeam", {}).get("name"),
+                                "score": {
+                                    "home": match.get("score", {}).get("fullTime", {}).get("home"),
+                                    "away": match.get("score", {}).get("fullTime", {}).get("away")
+                                },
+                                "status": match.get("status"),
+                                "date": match_date
+                            })
+                    except:
+                        # If date parsing fails, include the match anyway
+                        matches.append({
+                            "id": match.get("id"),
+                            "homeTeam": match.get("homeTeam", {}).get("name"),
+                            "awayTeam": match.get("awayTeam", {}).get("name"),
+                            "score": {
+                                "home": match.get("score", {}).get("fullTime", {}).get("home"),
+                                "away": match.get("score", {}).get("fullTime", {}).get("away")
+                            },
+                            "status": match.get("status"),
+                            "date": match_date
+                        })
+            
+            # If no recent matches found, try to get any available matches
+            if not matches and all_matches:
+                for match in all_matches[:10]:
+                    matches.append({
+                        "id": match.get("id"),
+                        "homeTeam": match.get("homeTeam", {}).get("name"),
+                        "awayTeam": match.get("awayTeam", {}).get("name"),
+                        "score": {
+                            "home": match.get("score", {}).get("fullTime", {}).get("home"),
+                            "away": match.get("score", {}).get("fullTime", {}).get("away")
+                        },
+                        "status": match.get("status"),
+                        "date": match.get("utcDate")
+                    })
             
             return {
                 "success": True,
                 "count": len(matches),
-                "matches": matches
+                "matches": matches,
+                "last_updated": datetime.now().isoformat()
             }
         else:
             raise HTTPException(

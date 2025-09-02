@@ -22,6 +22,7 @@ function App() {
   const [teamPlayers, setTeamPlayers] = useState([]);
   const [playerSearchTerm, setPlayerSearchTerm] = useState('');
   const [playerPositionFilter, setPlayerPositionFilter] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   // Fetch teams data
   const fetchTeams = async () => {
@@ -42,6 +43,10 @@ function App() {
       const response = await axios.get(`${API_BASE_URL}/matches`);
       if (response.data.success) {
         setMatches(response.data.matches);
+        // Store last updated time
+        if (response.data.last_updated) {
+          setLastUpdated(response.data.last_updated);
+        }
       }
     } catch (err) {
       setError('Failed to fetch matches data');
@@ -83,6 +88,9 @@ function App() {
     };
 
     fetchData();
+    
+    // Set initial last updated time
+    setLastUpdated(new Date().toISOString());
   }, []);
 
   const handleTeamClick = (team) => {
@@ -208,7 +216,21 @@ function App() {
 
         {activeTab === 'matches' && (
           <div className="matches-section">
-            <h2>Recent Premier League Matches</h2>
+            <div className="matches-header">
+              <h2>Recent Premier League Matches</h2>
+              <button 
+                className="refresh-button"
+                onClick={fetchMatches}
+                title="Refresh matches data"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+            {lastUpdated && (
+              <p className="last-updated">
+                Last updated: {new Date(lastUpdated).toLocaleString()}
+              </p>
+            )}
             <div className="matches-list">
               {matches.map(match => (
                 <div key={match.id} className="match-card">

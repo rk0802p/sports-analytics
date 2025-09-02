@@ -64,7 +64,7 @@ A comprehensive sports analytics platform for Premier League data analysis, feat
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/rk0802p/sports-analytics
 cd sports-analytics
 
 # Or if you already have the project, navigate to it
