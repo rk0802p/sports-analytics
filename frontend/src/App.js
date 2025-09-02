@@ -22,7 +22,6 @@ function App() {
   const [teamPlayers, setTeamPlayers] = useState([]);
   const [playerSearchTerm, setPlayerSearchTerm] = useState('');
   const [playerPositionFilter, setPlayerPositionFilter] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(null);
 
   // Fetch teams data
   const fetchTeams = async () => {
@@ -43,10 +42,6 @@ function App() {
       const response = await axios.get(`${API_BASE_URL}/matches`);
       if (response.data.success) {
         setMatches(response.data.matches);
-        // Store last updated time
-        if (response.data.last_updated) {
-          setLastUpdated(response.data.last_updated);
-        }
       }
     } catch (err) {
       setError('Failed to fetch matches data');
@@ -70,13 +65,21 @@ function App() {
   // Fetch team players
   const fetchTeamPlayers = async (teamId) => {
     try {
+      // Ensure teamId is a valid number
+      if (!teamId || isNaN(teamId)) {
+        console.error('Invalid team ID:', teamId, 'Type:', typeof teamId);
+        setError('Invalid team ID provided');
+        return;
+      }
+      
+      console.log('Fetching players for team ID:', teamId);
       const response = await axios.get(`${API_BASE_URL}/team/${teamId}/players`);
       if (response.data.success) {
         setTeamPlayers(response.data.players);
       }
     } catch (err) {
+      console.error('Error fetching team players:', err);
       setError('Failed to fetch team players');
-      console.error(err);
     }
   };
 
@@ -88,12 +91,17 @@ function App() {
     };
 
     fetchData();
-    
-    // Set initial last updated time
-    setLastUpdated(new Date().toISOString());
   }, []);
 
   const handleTeamClick = (team) => {
+    // Ensure we have a valid team object with an ID
+    if (!team || !team.id) {
+      console.error('Invalid team object:', team);
+      setError('Invalid team selected');
+      return;
+    }
+    
+    console.log('Team clicked:', team.name, 'ID:', team.id);
     fetchTeamDetails(team.id);
     fetchTeamPlayers(team.id);
   };
@@ -226,11 +234,6 @@ function App() {
                 🔄 Refresh
               </button>
             </div>
-            {lastUpdated && (
-              <p className="last-updated">
-                Last updated: {new Date(lastUpdated).toLocaleString()}
-              </p>
-            )}
             <div className="matches-list">
               {matches.map(match => (
                 <div key={match.id} className="match-card">

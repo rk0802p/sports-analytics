@@ -120,14 +120,9 @@ async def get_team_details(team_id: int):
 async def get_recent_matches():
     """Get recent Premier League matches"""
     try:
-        # Get matches from current season with better date filtering
+        # Get current season matches
         url = f"{BASE_URL}/competitions/PL/matches"
-        params = {
-            "season": datetime.now().year,  # Current season
-            "status": ["FINISHED", "LIVE", "SCHEDULED"]  # Include all relevant statuses
-        }
-        
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers)
         
         if response.status_code == 200:
             data = response.json()
@@ -137,63 +132,34 @@ async def get_recent_matches():
             all_matches = data.get("matches", [])
             
             # Sort matches by date (most recent first)
-            all_matches.sort(key=lambda x: x.get("utcDate", ""), reverse=True)
+            sorted_matches = sorted(
+                all_matches,
+                key=lambda x: x.get("utcDate", ""),
+                reverse=True
+            )
             
-            # Get last 15 matches for better variety
-            for match in all_matches[:15]:
-                match_date = match.get("utcDate")
-                if match_date:
-                    # Parse the date and check if it's recent (within last 6 months)
-                    try:
-                        match_datetime = datetime.fromisoformat(match_date.replace('Z', '+00:00'))
-                        six_months_ago = datetime.now() - timedelta(days=180)
-                        
-                        if match_datetime >= six_months_ago:
-                            matches.append({
-                                "id": match.get("id"),
-                                "homeTeam": match.get("homeTeam", {}).get("name"),
-                                "awayTeam": match.get("awayTeam", {}).get("name"),
-                                "score": {
-                                    "home": match.get("score", {}).get("fullTime", {}).get("home"),
-                                    "away": match.get("score", {}).get("fullTime", {}).get("away")
-                                },
-                                "status": match.get("status"),
-                                "date": match_date
-                            })
-                    except:
-                        # If date parsing fails, include the match anyway
-                        matches.append({
-                            "id": match.get("id"),
-                            "homeTeam": match.get("homeTeam", {}).get("name"),
-                            "awayTeam": match.get("awayTeam", {}).get("name"),
-                            "score": {
-                                "home": match.get("score", {}).get("fullTime", {}).get("home"),
-                                "away": match.get("score", {}).get("fullTime", {}).get("away")
-                            },
-                            "status": match.get("status"),
-                            "date": match_date
-                        })
-            
-            # If no recent matches found, try to get any available matches
-            if not matches and all_matches:
-                for match in all_matches[:10]:
-                    matches.append({
-                        "id": match.get("id"),
-                        "homeTeam": match.get("homeTeam", {}).get("name"),
-                        "awayTeam": match.get("awayTeam", {}).get("name"),
-                        "score": {
-                            "home": match.get("score", {}).get("fullTime", {}).get("home"),
-                            "away": match.get("score", {}).get("fullTime", {}).get("away")
-                        },
-                        "status": match.get("status"),
-                        "date": match.get("utcDate")
-                    })
+            # Get the most recent 15 matches for better coverage
+            for match in sorted_matches[:15]:
+                matches.append({
+                    "id": match.get("id"),
+                    "homeTeam": match.get("homeTeam", {}).get("name"),
+                    "awayTeam": match.get("awayTeam", {}).get("name"),
+                    "score": {
+                        "home": match.get("score", {}).get("fullTime", {}).get("home"),
+                        "away": match.get("score", {}).get("fullTime", {}).get("away")
+                    },
+                    "status": match.get("status"),
+                    "date": match.get("utcDate"),
+                    "competition": match.get("competition", {}).get("name"),
+                    "season": match.get("season", {}).get("startDate")[:4] if match.get("season", {}).get("startDate") else None
+                })
             
             return {
                 "success": True,
                 "count": len(matches),
                 "matches": matches,
-                "last_updated": datetime.now().isoformat()
+                "last_updated": datetime.now().isoformat(),
+                "season": sorted_matches[0].get("season", {}).get("startDate")[:4] if sorted_matches else None
             }
         else:
             raise HTTPException(
